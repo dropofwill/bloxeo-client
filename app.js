@@ -70880,6 +70880,7 @@ var StormActions = {
   * Dispatch set bank loaded event
   */
   endLoadAnimation: function endLoadAnimation() {
+    console.log('Action#endLoadAnimation');
     AppDispatcher.dispatch({
       actionType: StormConstants.END_LOAD_ANIMATION
     });
@@ -71771,15 +71772,21 @@ var LoadingOverlay = React.createClass({ displayName: "LoadingOverlay",
     };
   },
   componentDidMount: function componentDidMount() {
+    console.log('Did mount');
     LoadingStore.addLoadingListener(this.disable);
   },
   componentWillUnmount: function componentWillUnmount() {
+    console.log('Did unmount');
     LoadingStore.removeLoadingListener(this.disable);
   },
   disable: function disable() {
-    this.state.disabled = true;
+    console.log('disabling', this.state.disabled);
+    // this.state.disabled = true;
+    this.setState({ disabled: true });
+    console.log('disabled', this.state.disabled);
   },
   render: function render() {
+    console.log(this.state.disabled);
     var classToAdd = classNames('loadingOverlay', { active: !this.state.disabled });
     return React.createElement("section", { className: classToAdd }, React.createElement("div", { className: "loadingAnimation" }, React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" }), React.createElement("div", { className: "square" })));
   }
@@ -73736,6 +73743,7 @@ var LoadingStore = assign({}, EventEmitter.prototype, {
    * @param {function} callback - event callback function
    */
   addLoadingListener: function addLoadingListener(callback) {
+    console.log('add loading listener');
     this.on(LOAD_CHANGE_EVENT, callback);
   },
   /**
@@ -73743,6 +73751,7 @@ var LoadingStore = assign({}, EventEmitter.prototype, {
    * @param {function} callback - callback to be removed
    */
   removeLoadingListener: function removeLoadingListener(callback) {
+    console.log('remove loading listener');
     this.removeListener(LOAD_CHANGE_EVENT, callback);
   }
 });
@@ -73773,8 +73782,8 @@ var UserStore = require('./UserStore');
 // Init socket.io connection
 var socket = socketIO.connect(StormConstants.SERVER_URL_DEV);
 var currentBoardId = 0;
-var notReceived = true;
-var notReceivedBank = true;
+var receivedIdeas = false;
+var receivedCollections = false;
 
 var token = '';
 var errorMsg = '';
@@ -73891,13 +73900,18 @@ socket.on('RECEIVED_CONSTANTS', function (body) {
   });
   socket.on(EVENT_API.RECEIVED_COLLECTIONS, function (data) {
     resolveSocketResponse(data).then(function (res) {
-      if (notReceived) {
-        StormActions.receivedCollections(res.data, notReceived);
-        notReceived = false;
-        if (!notReceivedBank && !notReceived) {
-          StormActions.endLoadAnimation();
-        }
+      StormActions.receivedCollections(res.data, receivedCollections);
+
+      console.log('receivedCollections ' + receivedCollections);
+      console.log('receivedIdeas ' + receivedIdeas);
+
+      // if (!receivedCollections) {
+      receivedCollections = true;
+      if (receivedIdeas) {
+        console.log('endLoadAnimation');
+        StormActions.endLoadAnimation();
       }
+      // }
     })['catch'](function (res) {
       console.error('Error receiving collections: ' + res);
     });
@@ -73908,8 +73922,13 @@ socket.on('RECEIVED_CONSTANTS', function (body) {
         return idea.content;
       });
       StormActions.updatedIdeas(ideas);
-      notReceivedBank = false;
-      if (!notReceivedBank && !notReceived) {
+
+      console.log('receivedCollections ' + receivedCollections);
+      console.log('receivedIdeas ' + receivedIdeas);
+
+      receivedIdeas = true;
+      if (receivedCollections) {
+        console.log('endLoadAnimation');
         StormActions.endLoadAnimation();
       }
     })['catch'](function (res) {
@@ -73976,7 +73995,8 @@ socket.on('RECEIVED_CONSTANTS', function (body) {
    * @param {string} boardId
    */
   function joinBoard(boardId) {
-    notReceived = true;
+    // @XXX WUT?
+    receivedCollections = false;
     currentBoardId = boardId;
     socket.emit(EVENT_API.JOIN_ROOM, {
       boardId: currentBoardId,
